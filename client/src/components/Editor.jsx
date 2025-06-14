@@ -46,6 +46,7 @@ const Editor = () => {
     return () => {
       socketServer.disconnect();
     };
+    console.log("Socket initialized");
   }, []);
 
   // Quill initialization
