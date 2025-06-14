@@ -1,0 +1,23 @@
+.container{
+  display: flex;
+  width:60%;
+  background: #ffff;
+  box-shadow: 0 0 5px rgba(0,0,0,0.5);
+  margin:10px auto 10px auto !important;
+  min-height: 100vh;
+}
+
+.ql-toolbar.ql-snow{
+  display: flex;
+  justify-content: center;
+  position: sticky;
+  top:0;
+  z-index: 1;
+  background: #f3f3f3;
+  border: none !important;
+}
+
+
+.ql-editor {
+  background-color: white;
+}
