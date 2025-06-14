@@ -40,9 +40,7 @@ const Editor = () => {
 
   // Socket initialization
   useEffect(() => {
-    const socketServer = io(
-      process.env.REACT_APP_SOCKET_URL || "http://localhost:9000"
-    );
+    const socketServer = io(process.env.REACT_APP_SOCKET_URL);
     setSocket(socketServer);
 
     return () => {
