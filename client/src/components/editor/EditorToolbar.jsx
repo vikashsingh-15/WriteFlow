@@ -8,7 +8,7 @@ function ToolButton({ title, active, disabled, onClick, children }) {
   return <button type="button" title={title} aria-label={title} className={`tool-button ${active ? "active" : ""}`} disabled={disabled} onClick={onClick}>{children}</button>;
 }
 
-export default function EditorToolbar({ editor, users, saveState, busy, onAI, onSave }) {
+export default function EditorToolbar({ editor, users, saveState, busy, autocompleteEnabled, onToggleAutocomplete, onAI, onSave }) {
   const [showUsers, setShowUsers] = useState(false);
   if (!editor) return null;
   const addLink = () => {
@@ -26,6 +26,9 @@ export default function EditorToolbar({ editor, users, saveState, busy, onAI, on
   return (
     <footer className="editor-toolbar">
       <div className="toolbar-group">
+        <button type="button" className={`autocomplete-toggle ${autocompleteEnabled ? "enabled" : ""}`} aria-pressed={autocompleteEnabled} onClick={onToggleAutocomplete} title="AI inline suggestions">
+          <span className="toggle-track"><span /></span><Sparkles />AI suggestions
+        </button>
         <select aria-label="Text style" value={editor.isActive("heading", { level: 1 }) ? "h1" : editor.isActive("heading", { level: 2 }) ? "h2" : editor.isActive("heading", { level: 3 }) ? "h3" : "p"} onChange={(event) => {
           const value = event.target.value;
           if (value === "p") editor.chain().focus().setParagraph().run();

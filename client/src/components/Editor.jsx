@@ -20,6 +20,7 @@ import TableOfContents from "./editor/TableOfContents";
 import { requestAI } from "../services/aiApi";
 import { saveDocumentTitle } from "../services/documentApi";
 import DocumentSidebar from "./editor/DocumentSidebar";
+import { Autocomplete } from "./editor/extensions/Autocomplete";
 
 const EMPTY_DOCUMENT = "<p></p>";
 
@@ -40,6 +41,7 @@ export default function Editor() {
   const saveTimer = useRef(null);
   const slashCommandRunning = useRef(false);
   const titleIsCustom = useRef(false);
+  const titleRef = useRef("Untitled document");
   const [loaded, setLoaded] = useState(false);
   const [saveState, setSaveState] = useState("Loading…");
   const [users, setUsers] = useState([]);
@@ -48,6 +50,7 @@ export default function Editor() {
   const [error, setError] = useState("");
   const [title, setTitle] = useState("Untitled document");
   const [documentListVersion, setDocumentListVersion] = useState(0);
+  const [autocompleteEnabled, setAutocompleteEnabled] = useState(() => window.localStorage.getItem("writeflow-autocomplete") === "true");
   const [theme, setTheme] = useState(() => {
     const savedTheme = window.localStorage.getItem("writeflow-theme");
     if (savedTheme) return savedTheme;
@@ -57,6 +60,8 @@ export default function Editor() {
   useEffect(() => {
     window.localStorage.setItem("writeflow-theme", theme);
   }, [theme]);
+
+  useEffect(() => { titleRef.current = title; }, [title]);
 
   const editor = useEditor({
     extensions: [
@@ -71,6 +76,10 @@ export default function Editor() {
       TableRow,
       TableHeader,
       TableCell,
+      Autocomplete.configure({
+        delay: 1400,
+        fetchSuggestion: (context) => requestAI("autocomplete", { context: `Document title: ${titleRef.current}\n\n${context}` }),
+      }),
     ],
     content: EMPTY_DOCUMENT,
     editable: false,
@@ -90,6 +99,12 @@ export default function Editor() {
       }, 900);
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.commands.setAutocompleteEnabled(autocompleteEnabled);
+    window.localStorage.setItem("writeflow-autocomplete", String(autocompleteEnabled));
+  }, [autocompleteEnabled, editor]);
 
   useEffect(() => {
     if (!editor) return undefined;
@@ -238,6 +253,8 @@ export default function Editor() {
         users={users}
         saveState={saveState}
         busy={aiBusy}
+        autocompleteEnabled={autocompleteEnabled}
+        onToggleAutocomplete={() => setAutocompleteEnabled((value) => !value)}
         onAI={runAI}
         onSave={() => {
           if (!editor) return;
