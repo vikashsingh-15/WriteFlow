@@ -56,13 +56,3 @@ export const updateDocumentTitle = async (id, title) => {
   await document.save();
   return document;
 };
-
-export const listDocuments = async (query = "") => {
-  const filter = query ? { title: { $regex: String(query).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } } : {};
-  return Document.find(filter).select("_id title updatedAt createdAt").sort({ updatedAt: -1 }).limit(100).lean();
-};
-
-export const deleteDocument = async (id) => {
-  if (!id) throw new Error("Document ID is required");
-  return Document.findByIdAndDelete(id);
-};

@@ -19,7 +19,6 @@ import SelectionMenu from "./editor/SelectionMenu";
 import TableOfContents from "./editor/TableOfContents";
 import { requestAI } from "../services/aiApi";
 import { saveDocumentTitle } from "../services/documentApi";
-import DocumentSidebar from "./editor/DocumentSidebar";
 import { Autocomplete } from "./editor/extensions/Autocomplete";
 
 const EMPTY_DOCUMENT = "<p></p>";
@@ -49,7 +48,6 @@ export default function Editor() {
   const [aiBusy, setAiBusy] = useState("");
   const [error, setError] = useState("");
   const [title, setTitle] = useState("Untitled document");
-  const [documentListVersion, setDocumentListVersion] = useState(0);
   const [autocompleteEnabled, setAutocompleteEnabled] = useState(() => window.localStorage.getItem("writeflow-autocomplete") === "true");
   const [theme, setTheme] = useState(() => {
     const savedTheme = window.localStorage.getItem("writeflow-theme");
@@ -93,7 +91,6 @@ export default function Editor() {
         socket.emit("save-document", content, (result) => {
           setSaveState(result?.ok ? "Saved" : "Save failed");
           if (result?.title && !titleIsCustom.current) setTitle(result.title);
-          if (result?.ok) setDocumentListVersion((value) => value + 1);
           if (!result?.ok) setError(result?.error || "Could not save the document.");
         });
       }, 900);
@@ -152,7 +149,6 @@ export default function Editor() {
       titleIsCustom.current = Boolean(title.trim());
       const data = await saveDocumentTitle(id, title);
       setTitle(data.document.title);
-      setDocumentListVersion((value) => value + 1);
     } catch (titleError) {
       setError(titleError.message);
     }
@@ -237,7 +233,6 @@ export default function Editor() {
         </div>
       </header>
 
-      <DocumentSidebar currentId={id} refreshKey={documentListVersion} />
       {error && <div className="editor-alert" role="alert">{error}<button onClick={() => setError("")}>×</button></div>}
 
       <section className="editor-layout">
@@ -262,7 +257,6 @@ export default function Editor() {
           socket.emit("save-document", editor.getHTML(), (result) => {
             setSaveState(result?.ok ? "Saved" : "Save failed");
             if (result?.title && !titleIsCustom.current) setTitle(result.title);
-            if (result?.ok) setDocumentListVersion((value) => value + 1);
           });
         }}
       />

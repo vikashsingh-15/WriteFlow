@@ -7,11 +7,8 @@ async function request(path, options) {
   return data;
 }
 
-export const getDocuments = (query = "") => request(`/?q=${encodeURIComponent(query)}`);
 export const saveDocumentTitle = (id, title) => request(`/${id}/title`, {
   method: "PATCH",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ title }),
 });
-
-export const deleteDocument = (id) => request(`/${id}`, { method: "DELETE" });
