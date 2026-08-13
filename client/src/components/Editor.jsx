@@ -127,7 +127,8 @@ export default function Editor() {
     if (!editor || aiBusy) return;
     const { from, to, empty } = editor.state.selection;
     const selectedText = empty ? "" : editor.state.doc.textBetween(from, to, " ");
-    if (action !== "autocomplete" && action !== "summarize" && !selectedText) {
+    const usesWholeDocument = action === "summarize" || action === "faq";
+    if (action !== "autocomplete" && !usesWholeDocument && !selectedText) {
       setError("Select some text before using an AI editing action.");
       return;
     }
@@ -135,14 +136,18 @@ export default function Editor() {
     setAiBusy(action);
     try {
       const result = await requestAI(action, {
-        text: action === "summarize" ? editor.getText() : selectedText,
+        text: usesWholeDocument ? editor.getText() : selectedText,
         context: editor.getText().slice(Math.max(0, from - 2000), from),
         language: options.language,
       });
-      if (action === "summarize") {
+      if (usesWholeDocument) {
+        const bodyNodes = result.split(/\n+/).map((line) => line.trim()).filter(Boolean).map((line) => ({
+          type: "paragraph",
+          content: [{ type: "text", text: line }],
+        }));
         editor.chain().focus("end").insertContent([
-          { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Summary" }] },
-          { type: "paragraph", content: [{ type: "text", text: result }] },
+          { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: action === "faq" ? "Frequently Asked Questions" : "Summary" }] },
+          ...bodyNodes,
         ]).run();
       } else if (action === "autocomplete") {
         editor.chain().focus().splitBlock().insertContent(result).run();
@@ -160,18 +165,20 @@ export default function Editor() {
     if (!editor) return undefined;
     const handleSlashCommand = () => {
       if (slashCommandRunning.current || aiBusy) return;
-      let commandRange = null;
+      let command = null;
       editor.state.doc.descendants((node, pos) => {
-        if (node.isTextblock && /^\/{3}summari[sz]e$/i.test(node.textContent.trim())) {
-          commandRange = { from: pos, to: pos + node.nodeSize };
+        const value = node.textContent.trim();
+        const action = /^\/{3}summari[sz]e$/i.test(value) ? "summarize" : /^\/{3}faq$/i.test(value) ? "faq" : null;
+        if (node.isTextblock && action) {
+          command = { action, from: pos, to: pos + node.nodeSize };
           return false;
         }
         return true;
       });
-      if (!commandRange) return;
+      if (!command) return;
       slashCommandRunning.current = true;
-      editor.chain().deleteRange(commandRange).run();
-      runAI("summarize").finally(() => { slashCommandRunning.current = false; });
+      editor.chain().deleteRange({ from: command.from, to: command.to }).run();
+      runAI(command.action).finally(() => { slashCommandRunning.current = false; });
     };
     editor.on("update", handleSlashCommand);
     return () => editor.off("update", handleSlashCommand);

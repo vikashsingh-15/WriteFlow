@@ -4,6 +4,7 @@ const prompts = {
   rephrase: ({ text }) => `Rephrase this text without changing its meaning. Return only the rewritten text.\n\n${text}`,
   translate: ({ text, language }) => `Translate this text into ${language || "French"}. Return only the translation.\n\n${text}`,
   summarize: ({ text }) => `Summarize the following document clearly and concisely. Preserve the key facts and conclusions. Return only the summary, without a heading or commentary.\n\n${text}`,
+  faq: ({ text }) => `Create a useful FAQ from the following document. Include the most important questions a reader may ask and concise, accurate answers. Format every item exactly as "Q: question" followed by "A: answer", with a blank line between items. Return only the FAQ items, without an introductory heading.\n\n${text}`,
 };
 
 export async function runEditorAI(action, payload) {
