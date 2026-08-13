@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import Connection from "./db/db.js";
 import { getDocument, updateDocument } from "./controller/documentController.js";
 import aiRouter from "./routes/aiRoutes.js";
+import documentRouter from "./routes/documentRoutes.js";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use(cors({ origin: CLIENT_URL }));
 app.use(express.json({ limit: "2mb" }));
 app.get("/api/health", (_request, response) => response.json({ ok: true }));
 app.use("/api/ai", aiRouter);
+app.use("/api/documents", documentRouter);
 
 function colorFor(id) {
   const palette = ["#4f46e5", "#0891b2", "#16a34a", "#d97706", "#db2777", "#7c3aed"];
@@ -59,7 +61,7 @@ io.on("connection", (socket) => {
         name: String(profile.name || "Anonymous writer").slice(0, 40),
         color: colorFor(socket.id),
       });
-      socket.emit("load-document", document.data);
+      socket.emit("load-document", { data: document.data, title: document.title, titleIsCustom: document.titleIsCustom });
       publishPresence(documentId);
     } catch (error) {
       socket.emit("document-error", error.message);
@@ -75,8 +77,8 @@ io.on("connection", (socket) => {
     try {
       const documentId = socket.data.documentId;
       if (!documentId) throw new Error("Join a document before saving");
-      await updateDocument(documentId, content);
-      acknowledge({ ok: true });
+      const document = await updateDocument(documentId, content);
+      acknowledge({ ok: true, title: document.title });
     } catch (error) {
       acknowledge({ ok: false, error: error.message });
     }

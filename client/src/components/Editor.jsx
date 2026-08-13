@@ -18,6 +18,8 @@ import EditorToolbar from "./editor/EditorToolbar";
 import SelectionMenu from "./editor/SelectionMenu";
 import TableOfContents from "./editor/TableOfContents";
 import { requestAI } from "../services/aiApi";
+import { saveDocumentTitle } from "../services/documentApi";
+import DocumentSidebar from "./editor/DocumentSidebar";
 
 const EMPTY_DOCUMENT = "<p></p>";
 
@@ -37,12 +39,15 @@ export default function Editor() {
   const applyingRemoteChange = useRef(false);
   const saveTimer = useRef(null);
   const slashCommandRunning = useRef(false);
+  const titleIsCustom = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [saveState, setSaveState] = useState("Loading…");
   const [users, setUsers] = useState([]);
   const [showOutline, setShowOutline] = useState(false);
   const [aiBusy, setAiBusy] = useState("");
   const [error, setError] = useState("");
+  const [title, setTitle] = useState("Untitled document");
+  const [documentListVersion, setDocumentListVersion] = useState(0);
   const [theme, setTheme] = useState(() => {
     const savedTheme = window.localStorage.getItem("writeflow-theme");
     if (savedTheme) return savedTheme;
@@ -78,6 +83,8 @@ export default function Editor() {
       saveTimer.current = window.setTimeout(() => {
         socket.emit("save-document", content, (result) => {
           setSaveState(result?.ok ? "Saved" : "Save failed");
+          if (result?.title && !titleIsCustom.current) setTitle(result.title);
+          if (result?.ok) setDocumentListVersion((value) => value + 1);
           if (!result?.ok) setError(result?.error || "Could not save the document.");
         });
       }, 900);
@@ -88,10 +95,12 @@ export default function Editor() {
     if (!editor) return undefined;
     socket.connect();
 
-    const loadDocument = (content) => {
+    const loadDocument = (document) => {
       applyingRemoteChange.current = true;
-      editor.commands.setContent(toHtml(content), false);
+      editor.commands.setContent(toHtml(document?.data ?? document), false);
       applyingRemoteChange.current = false;
+      setTitle(document?.title || "Untitled document");
+      titleIsCustom.current = Boolean(document?.titleIsCustom);
       editor.setEditable(true);
       setLoaded(true);
       setSaveState("Saved");
@@ -122,6 +131,17 @@ export default function Editor() {
       socket.disconnect();
     };
   }, [editor, id, socket]);
+
+  const commitTitle = useCallback(async () => {
+    try {
+      titleIsCustom.current = Boolean(title.trim());
+      const data = await saveDocumentTitle(id, title);
+      setTitle(data.document.title);
+      setDocumentListVersion((value) => value + 1);
+    } catch (titleError) {
+      setError(titleError.message);
+    }
+  }, [id, title]);
 
   const runAI = useCallback(async (action, options = {}) => {
     if (!editor || aiBusy) return;
@@ -191,6 +211,7 @@ export default function Editor() {
           <span className="brand">WriteFlow</span>
           <span className={`save-state ${saveState === "Save failed" ? "error" : ""}`}>{saveState}</span>
         </div>
+        <input className="document-title-input" aria-label="Document title" value={title} onChange={(event) => { titleIsCustom.current = true; setTitle(event.target.value); }} onBlur={commitTitle} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />
         <div className="header-actions">
           <button className="theme-toggle" aria-label={`Switch to ${theme === "dark" ? "day" : "night"} theme`} onClick={() => setTheme((value) => value === "dark" ? "light" : "dark")}>
             {theme === "dark" ? <Sun /> : <Moon />}{theme === "dark" ? "Day" : "Night"}
@@ -201,6 +222,7 @@ export default function Editor() {
         </div>
       </header>
 
+      <DocumentSidebar currentId={id} refreshKey={documentListVersion} />
       {error && <div className="editor-alert" role="alert">{error}<button onClick={() => setError("")}>×</button></div>}
 
       <section className="editor-layout">
@@ -220,7 +242,11 @@ export default function Editor() {
         onSave={() => {
           if (!editor) return;
           setSaveState("Saving…");
-          socket.emit("save-document", editor.getHTML(), (result) => setSaveState(result?.ok ? "Saved" : "Save failed"));
+          socket.emit("save-document", editor.getHTML(), (result) => {
+            setSaveState(result?.ok ? "Saved" : "Save failed");
+            if (result?.title && !titleIsCustom.current) setTitle(result.title);
+            if (result?.ok) setDocumentListVersion((value) => value + 1);
+          });
         }}
       />
     </main>
