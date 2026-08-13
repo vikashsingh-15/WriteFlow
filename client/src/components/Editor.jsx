@@ -36,6 +36,7 @@ export default function Editor() {
   const socket = useMemo(() => io(socketUrl, { autoConnect: false }), [socketUrl]);
   const applyingRemoteChange = useRef(false);
   const saveTimer = useRef(null);
+  const slashCommandRunning = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [saveState, setSaveState] = useState("Loading…");
   const [users, setUsers] = useState([]);
@@ -126,7 +127,7 @@ export default function Editor() {
     if (!editor || aiBusy) return;
     const { from, to, empty } = editor.state.selection;
     const selectedText = empty ? "" : editor.state.doc.textBetween(from, to, " ");
-    if (action !== "autocomplete" && !selectedText) {
+    if (action !== "autocomplete" && action !== "summarize" && !selectedText) {
       setError("Select some text before using an AI editing action.");
       return;
     }
@@ -134,11 +135,16 @@ export default function Editor() {
     setAiBusy(action);
     try {
       const result = await requestAI(action, {
-        text: selectedText,
+        text: action === "summarize" ? editor.getText() : selectedText,
         context: editor.getText().slice(Math.max(0, from - 2000), from),
         language: options.language,
       });
-      if (action === "autocomplete") {
+      if (action === "summarize") {
+        editor.chain().focus("end").insertContent([
+          { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Summary" }] },
+          { type: "paragraph", content: [{ type: "text", text: result }] },
+        ]).run();
+      } else if (action === "autocomplete") {
         editor.chain().focus().splitBlock().insertContent(result).run();
       } else {
         editor.chain().focus().insertContentAt({ from, to }, result).run();
@@ -149,6 +155,27 @@ export default function Editor() {
       setAiBusy("");
     }
   }, [aiBusy, editor]);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+    const handleSlashCommand = () => {
+      if (slashCommandRunning.current || aiBusy) return;
+      let commandRange = null;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isTextblock && /^\/{3}summari[sz]e$/i.test(node.textContent.trim())) {
+          commandRange = { from: pos, to: pos + node.nodeSize };
+          return false;
+        }
+        return true;
+      });
+      if (!commandRange) return;
+      slashCommandRunning.current = true;
+      editor.chain().deleteRange(commandRange).run();
+      runAI("summarize").finally(() => { slashCommandRunning.current = false; });
+    };
+    editor.on("update", handleSlashCommand);
+    return () => editor.off("update", handleSlashCommand);
+  }, [aiBusy, editor, runAI]);
 
   return (
     <main className={`workspace-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>

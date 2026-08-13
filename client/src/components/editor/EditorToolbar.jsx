@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Bold, Italic, Underline, Highlighter, Undo2, Redo2, Link as LinkIcon,
-  Image, Table2, Code2, Quote, Save, Sparkles, Users,
+  Image, Table2, Code2, Quote, Save, Sparkles, Users, FileText,
 } from "lucide-react";
 
 function ToolButton({ title, active, disabled, onClick, children }) {
@@ -43,6 +43,7 @@ export default function EditorToolbar({ editor, users, saveState, busy, onAI, on
         <ToolButton title="Code block" active={editor.isActive("codeBlock")} onClick={() => editor.chain().focus().toggleCodeBlock().run()}><Code2 /></ToolButton>
         <ToolButton title="Block quote" active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()}><Quote /></ToolButton>
         <ToolButton title="Continue writing with AI" disabled={Boolean(busy)} onClick={() => onAI("autocomplete")}><Sparkles /></ToolButton>
+        <ToolButton title="Summarize document" disabled={Boolean(busy)} onClick={() => onAI("summarize")}><FileText /></ToolButton>
       </div>
       <div className="toolbar-group toolbar-meta">
         <span>{editor.storage.characterCount.words()} words</span>

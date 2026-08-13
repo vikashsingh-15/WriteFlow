@@ -2,7 +2,7 @@ import { Router } from "express";
 import { runEditorAI } from "../services/aiService.js";
 
 const router = Router();
-const supportedActions = new Set(["autocomplete", "improve", "rephrase", "translate"]);
+const supportedActions = new Set(["autocomplete", "improve", "rephrase", "translate", "summarize"]);
 
 router.post("/:action", async (request, response) => {
   try {

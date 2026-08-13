@@ -3,6 +3,7 @@ const prompts = {
   improve: ({ text }) => `Improve the clarity, grammar, and flow of this text while preserving its meaning. Return only the revised text.\n\n${text}`,
   rephrase: ({ text }) => `Rephrase this text without changing its meaning. Return only the rewritten text.\n\n${text}`,
   translate: ({ text, language }) => `Translate this text into ${language || "French"}. Return only the translation.\n\n${text}`,
+  summarize: ({ text }) => `Summarize the following document clearly and concisely. Preserve the key facts and conclusions. Return only the summary, without a heading or commentary.\n\n${text}`,
 };
 
 export async function runEditorAI(action, payload) {
