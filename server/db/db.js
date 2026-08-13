@@ -4,15 +4,15 @@ dotenv.config();
 
 const Connection = async () => {
   const MONGODB_URI = process.env.MONGODB_URI;
+  if (!MONGODB_URI) {
+    throw new Error("MONGODB_URI is not configured");
+  }
   try {
-    await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(MONGODB_URI);
     console.log("MongoDB connected successfully");
   } catch (error) {
     console.error("MongoDB connection failed:", error.message);
-    process.exit(1); // Exit the process with failure
+    throw error;
   }
 };
 

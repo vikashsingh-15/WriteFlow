@@ -1,135 +1,194 @@
-import { useEffect, useRef, useState } from "react";
-import Quill from "quill";
-import "quill/dist/quill.snow.css";
-import { Box } from "@mui/material";
-import styled from "@emotion/styled";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import Highlight from "@tiptap/extension-highlight";
+import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
+import Placeholder from "@tiptap/extension-placeholder";
+import CharacterCount from "@tiptap/extension-character-count";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableCell } from "@tiptap/extension-table-cell";
 import { io } from "socket.io-client";
 import { useParams } from "react-router-dom";
+import { Moon, Sun } from "lucide-react";
+import EditorToolbar from "./editor/EditorToolbar";
+import SelectionMenu from "./editor/SelectionMenu";
+import TableOfContents from "./editor/TableOfContents";
+import { requestAI } from "../services/aiApi";
 
-const Components = styled.div`
-  background-color: #f5f5f5;
-  height: 100vh;
-`;
+const EMPTY_DOCUMENT = "<p></p>";
 
-const toolbarOptions = [
-  ["bold", "italic", "underline", "strike"],
-  ["blockquote", "code-block"],
-  ["link", "image", "video", "formula"],
+function toHtml(content) {
+  if (typeof content === "string") return content || EMPTY_DOCUMENT;
+  if (content?.ops) {
+    const text = content.ops.map((op) => (typeof op.insert === "string" ? op.insert : "")).join("");
+    return `<p>${text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll("\n", "</p><p>")}</p>`;
+  }
+  return EMPTY_DOCUMENT;
+}
 
-  [{ header: 1 }, { header: 2 }],
-  [{ list: "ordered" }, { list: "bullet" }, { list: "check" }],
-  [{ script: "sub" }, { script: "super" }],
-  [{ indent: "-1" }, { indent: "+1" }],
-  [{ direction: "rtl" }],
-
-  [{ size: ["small", false, "large", "huge"] }],
-  [{ header: [1, 2, 3, 4, 5, 6, false] }],
-
-  [{ color: [] }, { background: [] }],
-  [{ font: [] }],
-  [{ align: [] }],
-
-  ["clean"],
-];
-
-const Editor = () => {
-  const wrapperRef = useRef(null);
-  const [socket, setSocket] = useState(null);
-  const [quill, setQuill] = useState(null);
+export default function Editor() {
   const { id } = useParams();
+  const socketUrl = process.env.REACT_APP_SOCKET_URL || "http://localhost:9000";
+  const socket = useMemo(() => io(socketUrl, { autoConnect: false }), [socketUrl]);
+  const applyingRemoteChange = useRef(false);
+  const saveTimer = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const [saveState, setSaveState] = useState("Loading…");
+  const [users, setUsers] = useState([]);
+  const [showOutline, setShowOutline] = useState(false);
+  const [aiBusy, setAiBusy] = useState("");
+  const [error, setError] = useState("");
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = window.localStorage.getItem("writeflow-theme");
+    if (savedTheme) return savedTheme;
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
 
-  // Socket initialization
   useEffect(() => {
-    const socketServer = io(
-      process.env.REACT_APP_SOCKET_URL || "http://localhost:9000"
-    );
-    setSocket(socketServer);
+    window.localStorage.setItem("writeflow-theme", theme);
+  }, [theme]);
 
-    return () => {
-      socketServer.disconnect();
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      Underline,
+      Highlight.configure({ multicolor: true }),
+      Link.configure({ openOnClick: false, autolink: true }),
+      Image.configure({ allowBase64: false }),
+      Placeholder.configure({ placeholder: "Start writing your document…" }),
+      CharacterCount,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+    ],
+    content: EMPTY_DOCUMENT,
+    editable: false,
+    onUpdate: ({ editor: currentEditor }) => {
+      if (applyingRemoteChange.current || !loaded) return;
+      const content = currentEditor.getHTML();
+      socket.emit("send-changes", content);
+      setSaveState("Unsaved");
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = window.setTimeout(() => {
+        socket.emit("save-document", content, (result) => {
+          setSaveState(result?.ok ? "Saved" : "Save failed");
+          if (!result?.ok) setError(result?.error || "Could not save the document.");
+        });
+      }, 900);
+    },
+  });
+
+  useEffect(() => {
+    if (!editor) return undefined;
+    socket.connect();
+
+    const loadDocument = (content) => {
+      applyingRemoteChange.current = true;
+      editor.commands.setContent(toHtml(content), false);
+      applyingRemoteChange.current = false;
+      editor.setEditable(true);
+      setLoaded(true);
+      setSaveState("Saved");
     };
-    console.log("Socket initialized");
-  }, []);
+    const receiveChanges = (content) => {
+      applyingRemoteChange.current = true;
+      editor.commands.setContent(toHtml(content), false);
+      applyingRemoteChange.current = false;
+    };
+    const presence = (connectedUsers) => setUsers(connectedUsers || []);
+    const serverError = (message) => setError(message || "A server error occurred.");
 
-  // Quill initialization
-  useEffect(() => {
-    if (wrapperRef.current == null) return;
-
-    const editor = document.createElement("div");
-    wrapperRef.current.innerHTML = ""; // Clear existing
-    wrapperRef.current.append(editor);
-
-    const quillServer = new Quill(editor, {
-      theme: "snow",
-      modules: { toolbar: toolbarOptions },
+    socket.on("load-document", loadDocument);
+    socket.on("receive-changes", receiveChanges);
+    socket.on("presence", presence);
+    socket.on("document-error", serverError);
+    socket.emit("get-document", id, {
+      name: `Writer ${Math.floor(Math.random() * 900 + 100)}`,
     });
-    quillServer.disable();
-    quillServer.setText("Loading...");
-    setQuill(quillServer);
-  }, []);
-
-  // Socket event handling
-  useEffect(() => {
-    if (socket == null || quill == null) return;
-
-    const handleChange = (delta, oldDelta, source) => {
-      if (source !== "user") return;
-      socket.emit("send-changes", delta);
-    };
-
-    quill.on("text-change", handleChange);
 
     return () => {
-      quill.off("text-change", handleChange);
+      window.clearTimeout(saveTimer.current);
+      socket.emit("leave-document");
+      socket.off("load-document", loadDocument);
+      socket.off("receive-changes", receiveChanges);
+      socket.off("presence", presence);
+      socket.off("document-error", serverError);
+      socket.disconnect();
     };
-  }, [socket, quill]);
+  }, [editor, id, socket]);
 
-  useEffect(() => {
-    if (socket == null || quill == null) return;
-
-    const handleReceive = (delta) => {
-      quill.updateContents(delta);
-    };
-
-    socket && socket.on("receive-changes", handleReceive);
-
-    return () => {
-      socket && socket.off("receive-changes", handleReceive);
-    };
-  }, [socket, quill]);
-
-  useEffect(() => {
-    if (socket == null || quill == null) return;
-
-    socket.once("load-document", (document) => {
-      quill && quill.setContents(document);
-      quill.enable();
-    });
-
-    socket && socket.emit("get-document", id);
-
-    return () => {
-      socket.emit("leave-room", id);
-    };
-  }, [socket, id, quill]);
-
-  useEffect(() => {
-    if (socket == null || quill == null) return;
-
-    setInterval(() => {
-      socket.emit("save-document", quill.getContents());
-    }, 2000);
-
-    return () => {
-      clearInterval();
-    };
-  }, [socket, quill]);
+  const runAI = useCallback(async (action, options = {}) => {
+    if (!editor || aiBusy) return;
+    const { from, to, empty } = editor.state.selection;
+    const selectedText = empty ? "" : editor.state.doc.textBetween(from, to, " ");
+    if (action !== "autocomplete" && !selectedText) {
+      setError("Select some text before using an AI editing action.");
+      return;
+    }
+    setError("");
+    setAiBusy(action);
+    try {
+      const result = await requestAI(action, {
+        text: selectedText,
+        context: editor.getText().slice(Math.max(0, from - 2000), from),
+        language: options.language,
+      });
+      if (action === "autocomplete") {
+        editor.chain().focus().splitBlock().insertContent(result).run();
+      } else {
+        editor.chain().focus().insertContentAt({ from, to }, result).run();
+      }
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setAiBusy("");
+    }
+  }, [aiBusy, editor]);
 
   return (
-    <Components>
-      <Box ref={wrapperRef} style={{ height: "100%", padding: "16px" }} />
-    </Components>
-  );
-};
+    <main className={`workspace-shell ${theme === "dark" ? "dark-theme" : "light-theme"}`}>
+      <header className="document-header">
+        <div>
+          <span className="brand">WriteFlow</span>
+          <span className={`save-state ${saveState === "Save failed" ? "error" : ""}`}>{saveState}</span>
+        </div>
+        <div className="header-actions">
+          <button className="theme-toggle" aria-label={`Switch to ${theme === "dark" ? "day" : "night"} theme`} onClick={() => setTheme((value) => value === "dark" ? "light" : "dark")}>
+            {theme === "dark" ? <Sun /> : <Moon />}{theme === "dark" ? "Day" : "Night"}
+          </button>
+          <button className="outline-toggle" onClick={() => setShowOutline((value) => !value)}>
+            {showOutline ? "Hide outline" : "Show outline"}
+          </button>
+        </div>
+      </header>
 
-export default Editor;
+      {error && <div className="editor-alert" role="alert">{error}<button onClick={() => setError("")}>×</button></div>}
+
+      <section className="editor-layout">
+        <div className="editor-column">
+          {editor && <SelectionMenu editor={editor} onAI={runAI} busy={aiBusy} />}
+          <EditorContent editor={editor} className="editor-page" />
+        </div>
+        {showOutline && <TableOfContents editor={editor} />}
+      </section>
+
+      <EditorToolbar
+        editor={editor}
+        users={users}
+        saveState={saveState}
+        busy={aiBusy}
+        onAI={runAI}
+        onSave={() => {
+          if (!editor) return;
+          setSaveState("Saving…");
+          socket.emit("save-document", editor.getHTML(), (result) => setSaveState(result?.ok ? "Saved" : "Save failed"));
+        }}
+      />
+    </main>
+  );
+}

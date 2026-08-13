@@ -6,9 +6,9 @@ const documentSchema = mongoose.Schema({
     required: true,
   },
   data: {
-    type: Object,
+    type: mongoose.Schema.Types.Mixed,
     required: true,
   },
 });
-const Document = mongoose.model("document", documentSchema);
+const Document = mongoose.models.document || mongoose.model("document", documentSchema);
 export default Document;

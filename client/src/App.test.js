@@ -1,8 +1,12 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { render, screen } from "@testing-library/react";
+import App from "./App";
 
-test('renders learn react link', () => {
+jest.mock("./components/Editor", () => function MockEditor() {
+  return <main><span>WriteFlow</span><button>Show outline</button></main>;
+});
+
+test("renders the WriteFlow editor workspace", async () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  expect(await screen.findByText("WriteFlow")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /show outline/i })).toBeInTheDocument();
 });
