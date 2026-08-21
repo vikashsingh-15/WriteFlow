@@ -7,8 +7,6 @@ import {
   Navigate,
 } from "react-router-dom";
 import { v4 as uuid } from "uuid";
-
-// React Component
 import Editor from "./components/Editor";
 
 function App() {

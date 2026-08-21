@@ -1,4 +1,6 @@
 import http from "http";
+import path from "path";
+import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
 import { Server } from "socket.io";
@@ -12,6 +14,8 @@ dotenv.config();
 
 const PORT = Number(process.env.PORT || 9000);
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientBuildPath = path.resolve(__dirname, "../client/build");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -24,6 +28,8 @@ app.use(express.json({ limit: "2mb" }));
 app.get("/api/health", (_request, response) => response.json({ ok: true }));
 app.use("/api/ai", aiRouter);
 app.use("/api/documents", documentRouter);
+app.use(express.static(clientBuildPath));
+app.get("/{*splat}", (_request, response) => response.sendFile(path.join(clientBuildPath, "index.html")));
 
 function colorFor(id) {
   const palette = ["#4f46e5", "#0891b2", "#16a34a", "#d97706", "#db2777", "#7c3aed"];

@@ -1,4 +1,4 @@
-const API_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || "http://localhost:9000";
+const API_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (process.env.NODE_ENV === "production" ? window.location.origin : "http://localhost:9000");
 
 async function request(path, options) {
   const response = await fetch(`${API_URL}/api/documents${path}`, options);

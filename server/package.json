@@ -1,21 +1,24 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "Server if for writeflow ",
+  "description": "WriteFlow application server",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "dotenv": "^16.5.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "mongoose": "^8.15.1",
-    "nodemon": "^3.1.4",
     "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

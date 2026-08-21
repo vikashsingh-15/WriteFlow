@@ -1,4 +1,4 @@
-const API_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || "http://localhost:9000";
+const API_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_SOCKET_URL || (process.env.NODE_ENV === "production" ? window.location.origin : "http://localhost:9000");
 
 export async function requestAI(action, payload) {
   const response = await fetch(`${API_URL}/api/ai/${action}`, {

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: writeflow
+    runtime: node
+    buildCommand: npm ci --prefix server --omit=dev && npm ci --prefix client && npm run build --prefix client
+    startCommand: npm start --prefix server
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.23.1
+      - key: MONGODB_URI
+        sync: false
+      # - key: CEREBRAS_API_KEY
+      #   sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: AI_API_URL
+        value: https://openrouter.ai/api/v1/chat/completions
+      - key: AI_MODEL
+        value: openrouter/free
+      - key: OPENROUTER_APP_TITLE
+        value: WriteFlow

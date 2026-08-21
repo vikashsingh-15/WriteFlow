@@ -34,7 +34,7 @@ function toHtml(content) {
 
 export default function Editor() {
   const { id } = useParams();
-  const socketUrl = process.env.REACT_APP_SOCKET_URL || "http://localhost:9000";
+  const socketUrl = process.env.REACT_APP_SOCKET_URL || (process.env.NODE_ENV === "production" ? window.location.origin : "http://localhost:9000");
   const socket = useMemo(() => io(socketUrl, { autoConnect: false }), [socketUrl]);
   const applyingRemoteChange = useRef(false);
   const saveTimer = useRef(null);
