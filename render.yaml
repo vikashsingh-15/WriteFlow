@@ -1,5 +1,6 @@
 services:
   - type: web
+    plan: free
     name: writeflow
     runtime: node
     buildCommand: npm ci --prefix server --omit=dev && npm ci --prefix client && npm run build --prefix client
