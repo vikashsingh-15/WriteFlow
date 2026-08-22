@@ -1,14 +1,66 @@
 # WriteFlow
 
-WriteFlow is a collaborative writing workspace with real-time editing and optional AI-assisted writing tools.
+A real-time collaborative document editor with built-in smart text editing tools — autocomplete, rephrasing, translation, summarization, and more.
 
-## Local development
+## Features
 
-1. Copy `.env.example` to `server/.env` and set `MONGODB_URI`.
-2. Add `OPENROUTER_API_KEY` if you want AI tools enabled. The default OpenRouter model is `openrouter/free`; change `AI_MODEL` for a specific paid model.
-3. In one terminal, run `npm install` and `npm run dev` from `server`.
-4. In another terminal, run `npm install` and `npm start` from `client`.
+- **Real-time collaboration** — Multiple people can edit the same document at once, with live sync via WebSockets
+- **Rich text editing** — Formatting, tables, images, and links
+- **Smart editing tools**
+  - Autocomplete suggestions
+  - Improve text clarity
+  - Rephrase content
+  - Translate text
+  - Summarize documents
+  - Generate FAQs from content
+- **Presence indicators** — See who else is editing, with per-user colors
+- **Table of contents** — Auto-generated outline for quick navigation
+- **Auto-save** — Documents persist automatically to the database
 
-## Render deployment
+## Tech Stack
 
-The included `render.yaml` deploys the client and server as one Render web service. Connect the repository in Render and create a Blueprint from the file. Set `MONGODB_URI`; set `OPENROUTER_API_KEY` if AI tools should be available. Render supplies `PORT` automatically.
+**Frontend:** React, TipTap editor, Socket.io Client
+**Backend:** Node.js, Express, Socket.io, MongoDB (Mongoose)
+
+## Prerequisites
+
+- Node.js v18+
+- A MongoDB Atlas cluster (or local MongoDB instance)
+- A Cerebras API key (for the editing features)
+
+## Project Structure
+
+```
+writeFlow/
+├── client/                 # React frontend
+│   ├── public/
+│   └── src/
+│       ├── components/
+│       ├── services/
+│       └── ...
+├── server/                 # Node/Express backend
+│   ├── controller/
+│   ├── routes/
+│   ├── services/
+│   ├── schema/
+│   ├── db/
+│   └── index.js
+└── README.md
+```
+
+## API Overview
+
+| Endpoint                   | Method | Description                 |
+| -------------------------- | ------ | --------------------------- |
+| `/api/documents/:id`       | GET    | Fetch a document            |
+| `/api/documents`           | POST   | Create a document           |
+| `/api/documents/:id`       | PUT    | Update a document           |
+| `/api/editor/autocomplete` | POST   | Get autocomplete suggestion |
+| `/api/editor/improve`      | POST   | Improve text                |
+| `/api/editor/rephrase`     | POST   | Rephrase text               |
+| `/api/editor/translate`    | POST   | Translate text              |
+| `/api/editor/summarize`    | POST   | Summarize content           |
+| `/api/editor/faq`          | POST   | Generate FAQ from content   |
+| `/api/health`              | GET    | Health check                |
+
+Real-time sync is handled over WebSockets (Socket.io) on the same server/port as the API — no separate hosting needed.
